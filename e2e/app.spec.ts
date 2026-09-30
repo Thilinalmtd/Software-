@@ -161,3 +161,27 @@ test('imports a bank statement and matches a line', async ({ page }) => {
   await expect(page.getByText(/Imported 2 line/)).toBeVisible();
   await expect(page.getByText('E2E CLIENT DEPOSIT')).toBeVisible();
 });
+
+test('downloads an invoice PDF and a payslip PDF', async ({ page }) => {
+  await startDemo(page);
+  await page.getByRole('link', { name: 'Invoices & quotes' }).click();
+  await page.getByRole('button', { name: /Actions for INV-/ }).first().click();
+  const invoicePdf = page.waitForEvent('download');
+  await page.getByRole('menuitem', { name: 'Download PDF' }).click();
+  expect((await invoicePdf).suggestedFilename()).toMatch(/^INV-\d{4}-\d{4}\.pdf$/);
+
+  await page.getByRole('link', { name: 'Payroll' }).click();
+  await page.getByRole('cell', { name: /2026/ }).first().click();
+  const payslip = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Payslip' }).first().click();
+  expect((await payslip).suggestedFilename()).toMatch(/^payslip-.*\.pdf$/);
+});
+
+test("builds the accountant's pack", async ({ page }) => {
+  await startDemo(page);
+  await page.goto('/#/reports?tab=pack');
+  await expect(page.getByText('Balances ✓')).toBeVisible();
+  const pack = page.waitForEvent('download');
+  await page.getByRole('button', { name: /Download accountant pack/ }).click();
+  expect((await pack).suggestedFilename()).toMatch(/^AptoCAD-accountant-pack-.*\.xlsx$/);
+});
