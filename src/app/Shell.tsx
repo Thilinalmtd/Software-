@@ -188,7 +188,7 @@ function TopBar() {
   const { range } = usePeriod();
   const presets = Object.entries(PERIOD_PRESET_LABELS).map(([value, label]) => ({ value, label }));
   return (
-    <header className="no-print flex h-16 shrink-0 items-center gap-3 border-b border-line bg-surface px-8">
+    <header className="no-print flex h-16 shrink-0 items-center gap-3 border-b border-line bg-surface px-6 xl:px-8">
       <div role="radiogroup" aria-label="Department" className="inline-flex rounded-lg bg-surface-3 p-0.5">
         {[{ id: 'all', name: 'Company', color: null as string | null }, ...(departments.data ?? []).filter((d) => !d.archived).map((d) => ({ id: d.id, name: d.name, color: d.color }))].map((d) => (
           <button
@@ -197,7 +197,7 @@ function TopBar() {
             role="radio"
             aria-checked={dept === d.id}
             onClick={() => setDept(d.id)}
-            className={cn('inline-flex h-8 cursor-pointer items-center gap-2 rounded-md px-3 text-[13px] font-medium text-ink-2 transition-colors', dept === d.id ? 'bg-surface text-ink shadow-sm' : 'hover:text-ink')}
+            className={cn('inline-flex h-8 cursor-pointer items-center gap-2 rounded-md px-3 text-[13px] font-medium whitespace-nowrap text-ink-2 transition-colors', dept === d.id ? 'bg-surface text-ink shadow-sm' : 'hover:text-ink')}
           >
             {d.color && <span className="size-2 rounded-full" style={{ background: d.color }} />}
             {d.name}
@@ -205,7 +205,7 @@ function TopBar() {
         ))}
       </div>
       <div className="flex items-center gap-2">
-        <Select aria-label="Period" className="h-9 w-56" value={preset} onChange={(e) => setPreset(e.target.value as PeriodPreset | 'custom')} options={[...presets, { value: 'custom', label: 'Custom dates…' }]} />
+        <Select aria-label="Period" className="h-9 w-48 xl:w-56" value={preset} onChange={(e) => setPreset(e.target.value as PeriodPreset | 'custom')} options={[...presets, { value: 'custom', label: 'Custom dates…' }]} />
         {preset === 'custom' && (
           <>
             <Input type="date" aria-label="From" className="w-40" value={customRange.from} onChange={(e) => e.target.value && setCustomRange({ ...customRange, from: e.target.value })} />
@@ -213,7 +213,7 @@ function TopBar() {
             <Input type="date" aria-label="To" className="w-40" value={customRange.to} onChange={(e) => e.target.value && setCustomRange({ ...customRange, to: e.target.value })} />
           </>
         )}
-        {preset !== 'custom' && <span className="hidden text-xs text-muted xl:inline tabular">{range.from} → {range.to}</span>}
+        {preset !== 'custom' && <span className="hidden text-xs whitespace-nowrap text-muted min-[1400px]:inline tabular">{range.from} → {range.to}</span>}
       </div>
       <div className="ml-auto flex items-center gap-3">
         {mode === 'demo' && <Badge tone="caution">Demo data</Badge>}
