@@ -24,6 +24,10 @@ const TABLE_LABELS: Record<string, string> = {
   period_lock: 'Month lock',
   payroll_runs: 'Payroll run',
   attachments: 'Attachment',
+  statement_lines: 'Statement line',
+  statement_imports: 'Statement import',
+  invoice_items: 'Invoice line',
+  payslips: 'Payslip',
 };
 
 const ACTION_TONE: Record<string, 'positive' | 'info' | 'negative' | 'caution' | 'neutral'> = { post: 'positive', insert: 'positive', update: 'info', void: 'negative', delete: 'negative' };
