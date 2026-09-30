@@ -56,7 +56,8 @@ export class SupabaseRepository implements Repository {
   onAuthChange(cb: (session: Session | null) => void): () => void {
     const { data } = this.client.auth.onAuthStateChange((_event, session) => {
       const u = session?.user;
-      cb(u ? { userId: u.id, email: u.email ?? '' } : null);
+      // Defer: calling Supabase from inside this callback can deadlock the auth lock.
+      setTimeout(() => cb(u ? { userId: u.id, email: u.email ?? '' } : null), 0);
     });
     return () => data.subscription.unsubscribe();
   }
