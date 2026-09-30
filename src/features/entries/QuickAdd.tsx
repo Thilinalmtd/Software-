@@ -197,6 +197,15 @@ function EntryForm({ tab, initial, entry, onDone }: { tab: QuickAddTab; initial:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account?.id, writableIds.join()]);
 
+  // First time (nothing remembered): start with the department's own LKR bank account.
+  useEffect(() => {
+    if (s.accountId || !s.departmentId) return;
+    const candidates = L.accounts.filter((a) => ['bank', 'platform', 'cash', 'card'].includes(a.type) && !a.archived && writableIds.includes(a.department_id ?? ''));
+    const pick = candidates.find((a) => a.department_id === s.departmentId && a.type === 'bank' && a.currency === 'LKR') ?? candidates.find((a) => a.department_id === s.departmentId) ?? candidates[0];
+    if (pick) set({ accountId: pick.id });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [s.departmentId, L.accounts.length]);
+
   // Exchange rates
   const spot = useRateToLkr(currency, s.date);
   const toSpot = useRateToLkr(toCurrency, s.date);

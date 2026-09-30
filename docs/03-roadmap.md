@@ -1,5 +1,8 @@
 # 3. Product roadmap: AptoCAD Finance (working title)
 
+> **Status (30 Sep 2026):** v1.0 scope (Phases 1–3) is implemented — see the [README](../README.md) and
+> [setup guide](SETUP.md). Remaining roadmap items are Phase 4 (forecasting, OCR, AI assistant, mobile).
+
 A **Windows desktop app** that replaces the *AptoCAD Department Finance Tracker* workbook. It's quick to fill
 in, clear to read, and it enforces the company's finance rules automatically.
 

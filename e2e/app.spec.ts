@@ -87,7 +87,7 @@ test('explains what is missing instead of saving a bad entry', async ({ page }) 
   const dialog = await openQuickAdd(page, 'Money out');
   await dialog.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(dialog.getByText('Please check')).toBeVisible();
-  await expect(dialog.getByText(/Choose the account you paid from/)).toBeVisible();
+  await expect(dialog.getByText(/Choose a category for each amount/)).toBeVisible();
 });
 
 test('voids an entry with a reason and keeps it on record', async ({ page }) => {
