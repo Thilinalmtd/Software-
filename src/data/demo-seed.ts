@@ -23,19 +23,26 @@ function prng(seed: number) {
 const lkr = (rupees: number) => Math.round(rupees * 100);
 const usd = (dollars: number) => Math.round(dollars * 100);
 
+/** Departments, chart of accounts and default settings — what a fresh Supabase database is seeded with. */
+export function seedBase(repo: DemoRepository): Department[] {
+  const s = repo.raw;
+  s.settings = structuredClone(DEFAULT_SETTINGS);
+  const departments: Department[] = DEFAULT_DEPARTMENTS.map((d) => ({ ...d, id: crypto.randomUUID(), archived: false }));
+  s.departments = departments;
+  s.ledger_accounts = DEFAULT_CHART.map((a) => ({ id: crypto.randomUUID(), code: a.code, name: a.name, type: a.type, currency: a.currency ?? null, department_id: null, category_group: a.category_group, system_key: a.system_key ?? null, account_number: null, last_reconciled_date: null, archived: false, notes: null }));
+  return departments;
+}
+
 export async function seedDemo(repo: DemoRepository, asOf: string = today()): Promise<void> {
   const rand = prng(20261001);
   const between = (a: number, b: number) => a + (b - a) * rand();
   const pick = <T,>(xs: T[]) => xs[Math.floor(rand() * xs.length)];
   const s = repo.raw;
-  s.settings = structuredClone(DEFAULT_SETTINGS);
-  s.settings.allocation = { method: 'revenue_share', fixed_pct: {} };
 
   // Departments & chart of accounts
-  const departments: Department[] = DEFAULT_DEPARTMENTS.map((d) => ({ ...d, id: crypto.randomUUID(), archived: false }));
-  s.departments = departments;
+  const departments = seedBase(repo);
+  s.settings.allocation = { method: 'revenue_share', fixed_pct: {} };
   const [civ, mec, corp] = departments;
-  s.ledger_accounts = DEFAULT_CHART.map((a) => ({ id: crypto.randomUUID(), code: a.code, name: a.name, type: a.type, currency: a.currency ?? null, department_id: null, category_group: a.category_group, system_key: a.system_key ?? null, account_number: null, last_reconciled_date: null, archived: false, notes: null }));
   const money = (code: string, name: string, type: LedgerAccount['type'], currency: string, dept: Department, number: string | null = null): LedgerAccount => {
     const a: LedgerAccount = { id: crypto.randomUUID(), code, name, type, currency, department_id: dept.id, category_group: null, system_key: null, account_number: number, last_reconciled_date: null, archived: false, notes: null };
     s.ledger_accounts.push(a);

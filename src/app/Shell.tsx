@@ -20,6 +20,7 @@ import {
   Users,
   Wallet,
   Plug,
+  Sparkles,
 } from 'lucide-react';
 import { useEffect, type ReactNode } from 'react';
 import { NavLink, useNavigate } from 'react-router';
@@ -32,6 +33,7 @@ import { useDepartments, useSettings } from '@/data/hooks';
 import { canRecord, isAdmin, ROLE_LABELS } from '@/data/permissions';
 import { QuickAddDialog } from '@/features/entries/QuickAdd';
 import { cn } from '@/lib/cn';
+import { checkForUpdates } from '@/lib/updater';
 import { usePeriod, useUi } from './ui-state';
 
 interface NavItem {
@@ -78,6 +80,11 @@ export function Shell({ children }: { children: ReactNode }) {
   const settings = useSettings();
   const navigate = useNavigate();
   const recorder = canRecord(member);
+
+  useEffect(() => {
+    const t = setTimeout(() => void checkForUpdates(), 4000);
+    return () => clearTimeout(t);
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -155,6 +162,7 @@ export function Shell({ children }: { children: ReactNode }) {
               { label: 'Match Windows', icon: <Monitor />, onSelect: () => setTheme('system'), disabled: theme === 'system' },
               'separator',
               { label: 'Keyboard shortcuts', icon: <ListChecks />, onSelect: () => navigate('/settings?tab=help') },
+              { label: 'Check for updates', icon: <Sparkles />, onSelect: () => void checkForUpdates(true) },
               { label: mode === 'demo' ? 'Leave demo / connect database' : 'Change database connection', icon: <Plug />, onSelect: () => disconnect() },
               { label: 'Sign out', icon: <LogOut />, onSelect: () => void repo?.signOut() },
             ]}

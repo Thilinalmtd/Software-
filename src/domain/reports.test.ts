@@ -156,3 +156,15 @@ describe('other reports', () => {
     expect(a.buckets.d90_plus).toBe(100);
   });
 });
+
+describe('trial balance', () => {
+  it('always balances, carrying earlier profit forward', async () => {
+    const { trialBalance } = await import('./reports');
+    const { w, rows } = scenario();
+    const tb = trialBalance(rows, w.accountMap, { from: '2026-10-05', to: '2026-10-31' });
+    expect(tb.totalDebit).toBe(tb.totalCredit);
+    expect(tb.lines.some((l) => l.account === null)).toBe(true);
+    const full = trialBalance(rows, w.accountMap, { from: '2026-04-01', to: '2027-03-31' });
+    expect(full.totalDebit).toBe(full.totalCredit);
+  });
+});

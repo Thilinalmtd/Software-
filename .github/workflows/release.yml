@@ -1,0 +1,62 @@
+name: Release
+
+# Push a tag like v1.0.0 to build signed-update-ready Windows installers and a draft GitHub release.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+      - run: npm ci
+
+      # Automatic updates are switched on only when the signing key (secret) and public key
+      # (repository variable) have been added — see docs/SETUP.md, "Automatic updates".
+      - name: Configure updater
+        shell: pwsh
+        env:
+          PUBKEY: ${{ vars.TAURI_UPDATER_PUBKEY }}
+          HAS_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
+        run: |
+          if ($env:PUBKEY -and $env:HAS_KEY -eq 'true') {
+            $cfg = @{
+              bundle  = @{ createUpdaterArtifacts = $true }
+              plugins = @{ updater = @{ pubkey = $env:PUBKEY; endpoints = @("https://github.com/${{ github.repository }}/releases/latest/download/latest.json") } }
+            } | ConvertTo-Json -Depth 6
+            Set-Content -Path src-tauri/tauri.release.conf.json -Value $cfg
+            "TAURI_ARGS=--config src-tauri/tauri.release.conf.json" | Out-File -FilePath $env:GITHUB_ENV -Append
+            Write-Host 'Updater enabled'
+          } else {
+            "TAURI_ARGS=" | Out-File -FilePath $env:GITHUB_ENV -Append
+            Write-Host 'Updater not configured — building without automatic updates'
+          }
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # Optional: bake the company database connection into the installer.
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: AptoCAD Finance ${{ github.ref_name }}
+          releaseBody: Download the “…_x64-setup.exe” installer below and run it on each Windows PC. First-time setup is in docs/SETUP.md.
+          releaseDraft: true
+          prerelease: false
+          args: ${{ env.TAURI_ARGS }}

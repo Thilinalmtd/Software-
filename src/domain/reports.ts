@@ -567,3 +567,40 @@ export function carryingRateFor(rows: LedgerRow[], account: LedgerAccount, asOf?
   }
   return carryingRate(balance, book, account.currency);
 }
+
+// ---------------------------------------------------------------------------
+// Trial balance (for the accountant): balance-sheet accounts cumulative to the end date,
+// income/expense accounts for the period, and earlier profit carried in "Retained profit".
+// ---------------------------------------------------------------------------
+
+export interface TrialBalanceLine {
+  account: LedgerAccount | null; // null = retained profit brought forward
+  label: string;
+  debit: number;
+  credit: number;
+}
+
+export function trialBalance(rows: LedgerRow[], accounts: Map<Uuid, LedgerAccount>, range: DateRange): { lines: TrialBalanceLine[]; totalDebit: number; totalCredit: number } {
+  const sums = new Map<Uuid, number>();
+  let retained = 0;
+  for (const r of rows) {
+    if (r.status !== 'cleared' || r.date > range.to) continue;
+    const a = accounts.get(r.account_id);
+    if (!a) continue;
+    const isPL = a.type === 'income' || a.type === 'expense';
+    if (isPL && r.date < range.from) {
+      retained += r.amount_lkr_minor;
+      continue;
+    }
+    sums.set(a.id, (sums.get(a.id) ?? 0) + r.amount_lkr_minor);
+  }
+  const lines: TrialBalanceLine[] = [...sums.entries()]
+    .filter(([, v]) => v !== 0)
+    .map(([id, v]) => {
+      const a = accounts.get(id)!;
+      return { account: a, label: `${a.code} ${a.name}`, debit: v > 0 ? v : 0, credit: v < 0 ? -v : 0 };
+    })
+    .sort((x, y) => (x.account?.code ?? '').localeCompare(y.account?.code ?? ''));
+  if (retained !== 0) lines.push({ account: null, label: 'Retained profit brought forward', debit: retained > 0 ? retained : 0, credit: retained < 0 ? -retained : 0 });
+  return { lines, totalDebit: lines.reduce((s, l) => s + l.debit, 0), totalCredit: lines.reduce((s, l) => s + l.credit, 0) };
+}

@@ -1,6 +1,6 @@
 import { Checkbox as RCheckbox, Switch as RSwitch } from 'radix-ui';
 import { Check } from 'lucide-react';
-import { forwardRef, useEffect, useState, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
+import { cloneElement, forwardRef, isValidElement, useEffect, useId, useState, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 import { currencyDecimals, minorToInput, toMinor } from '@/domain/money';
 import { cn } from '@/lib/cn';
 
@@ -45,11 +45,19 @@ export function Label({ children, htmlFor, className }: { children: ReactNode; h
   );
 }
 
+/** Label + control. The label is linked to the control automatically (for screen readers and click-to-focus). */
 export function Field({ label, hint, error, children, className, htmlFor }: { label: ReactNode; hint?: ReactNode; error?: string | null; children: ReactNode; className?: string; htmlFor?: string }) {
+  const autoId = useId();
+  let id = htmlFor;
+  let control = children;
+  if (!id && isValidElement<{ id?: string }>(children)) {
+    id = children.props.id ?? autoId;
+    if (!children.props.id) control = cloneElement(children, { id });
+  }
   return (
     <div className={className}>
-      <Label htmlFor={htmlFor}>{label}</Label>
-      {children}
+      <Label htmlFor={id}>{label}</Label>
+      {control}
       {error ? <p className="mt-1 text-xs text-negative">{error}</p> : hint ? <p className="mt-1 text-xs text-muted">{hint}</p> : null}
     </div>
   );
@@ -88,9 +96,12 @@ export function MoneyInput({ value, onChange, currency = 'LKR', className, id, p
         placeholder={placeholder}
         value={text}
         onFocus={(e) => {
+          // Switch to the plain editable number and select it in the same tick, so typing replaces it.
+          const raw = value === null ? '' : minorToInput(value, currency);
+          e.target.value = raw;
+          e.target.select();
+          setText(raw);
           setFocused(true);
-          setText(value === null ? '' : minorToInput(value, currency));
-          requestAnimationFrame(() => e.target.select());
         }}
         onBlur={() => {
           setFocused(false);
