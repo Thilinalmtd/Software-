@@ -153,6 +153,8 @@ describe('posting', () => {
     await expect(post(ids.civil, draft)).rejects.toThrow(/your own department/);
     await expect(post(ids.viewer, draft)).rejects.toThrow(/permission/);
     await expect(post(ids.mech, draft)).resolves.toMatchObject({ number: 'INC-2026-00002' });
+    const payFromMechanical = buildExpense({ date: '2026-10-02', description: 'x', departmentId: dept('CIV').id, moneyAccount: acc('Mechanical Bank'), splits: [{ account: acc('Utilities'), amountMinor: 1000 }] });
+    await expect(post(ids.civil, payFromMechanical)).rejects.toThrow(/pay from accounts of your own department/);
   });
 
   it('rejects entries that break the accounting rules', async () => {

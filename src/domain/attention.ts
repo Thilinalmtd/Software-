@@ -44,13 +44,14 @@ export function attentionItems(i: AttentionInput): AttentionItem[] {
     }
   }
 
-  // Reconciliation
+  // Reconciliation (grouped when several accounts are due)
+  const reconcileItems: AttentionItem[] = [];
   for (const b of i.balances) {
     if (b.account.archived || b.unreconciledCount === 0) continue;
     const last = b.account.last_reconciled_date;
     const days = last ? daysBetween(last, i.asOf) : null;
     if (days === null || days > i.settings.attention.reconcile_after_days) {
-      items.push({
+      reconcileItems.push({
         id: `rec-${b.account.id}`,
         severity: 'warning',
         title: `Reconcile ${b.account.name}`,
@@ -59,6 +60,10 @@ export function attentionItems(i: AttentionInput): AttentionItem[] {
       });
     }
   }
+
+  if (reconcileItems.length > 2) {
+    items.push({ id: 'rec-many', severity: 'warning', title: `Reconcile ${reconcileItems.length} accounts`, detail: reconcileItems.map((r) => r.title.replace('Reconcile ', '')).join(', '), link: '/accounts' });
+  } else items.push(...reconcileItems);
 
   // Statutory liabilities
   for (const l of i.liabilities) {

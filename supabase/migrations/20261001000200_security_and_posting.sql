@@ -250,6 +250,17 @@ begin
   ) p where problem is not null;
   if v_problem is not null then raise exception '%', v_problem; end if;
 
+  -- Money may arrive in any department's account, but only leaves accounts you may write to,
+  -- and income/cost lines must belong to departments you may write to.
+  if exists (select 1 from public.parse_lines(p_lines) l join public.ledger_accounts a on a.id = l.account_id
+             where a.type in ('bank', 'platform', 'cash', 'card') and l.amount_minor < 0 and not public.can_write_department(a.department_id)) then
+    raise exception 'You can only pay from accounts of your own department.' using errcode = '42501';
+  end if;
+  if exists (select 1 from public.parse_lines(p_lines) l join public.ledger_accounts a on a.id = l.account_id
+             where a.type not in ('bank', 'platform', 'cash', 'card') and not public.can_write_department(l.department_id)) then
+    raise exception 'You can only record income and costs for your own department.' using errcode = '42501';
+  end if;
+
   select count(*) into v_money from public.parse_lines(p_lines) l join public.ledger_accounts a on a.id = l.account_id
   where a.type in ('bank', 'platform', 'cash', 'card');
   if v_kind in ('income', 'expense', 'transfer', 'statutory_payment', 'opening_balance') and v_money = 0 then

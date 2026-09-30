@@ -1,9 +1,9 @@
 -- AptoCAD Finance — default data (generated from src/domain/defaults.ts; do not edit by hand)
 
 insert into public.departments (code, name, is_operating, director_name, color, sort_order) values
-  ('CIV', 'Civil', true, 'Thilina', '#2563EB', 1),
-  ('MEC', 'Mechanical', true, 'Ishara Deshapriya', '#D97706', 2),
-  ('CORP', 'Corporate / Shared', false, null, '#64748B', 3)
+  ('CIV', 'Civil', true, 'Thilina', '#2a78d6', 1),
+  ('MEC', 'Mechanical', true, 'Ishara Deshapriya', '#eb6834', 2),
+  ('CORP', 'Corporate / Shared', false, null, '#1baf7a', 3)
 on conflict (code) do nothing;
 
 insert into public.ledger_accounts (code, name, type, currency, category_group, system_key) values

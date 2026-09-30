@@ -1,4 +1,4 @@
-import { isBase, pctOf, toLkrMinor } from './money';
+import { carryingRate, isBase, pctOf, toLkrMinor } from './money';
 import { calendarQuarter, fiscalYear, inRange, monthKey, addDays, addMonths, type DateRange } from './period';
 import {
   MONEY_ACCOUNT_TYPES,
@@ -553,4 +553,17 @@ export function ageing(items: AgeingItem[], asOf: IsoDate, rates: Record<string,
     itemBuckets.set(it.id, b);
   }
   return { buckets, totalLkr, itemBuckets };
+}
+
+/** Average LKR carrying rate of a foreign-currency account's cleared balance (null when empty). */
+export function carryingRateFor(rows: LedgerRow[], account: LedgerAccount, asOf?: IsoDate): string | null {
+  if (!account.currency || isBase(account.currency)) return '1';
+  let balance = 0;
+  let book = 0;
+  for (const r of rows) {
+    if (r.account_id !== account.id || r.status !== 'cleared' || (asOf && r.date > asOf)) continue;
+    balance += r.amount_minor;
+    book += r.amount_lkr_minor;
+  }
+  return carryingRate(balance, book, account.currency);
 }

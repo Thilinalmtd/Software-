@@ -4,9 +4,9 @@ import type { AccountType, CategoryGroup, CompanySettings, SystemAccountKey } fr
 // The same data is seeded by supabase/migrations/0003_seed.sql.
 
 export const DEFAULT_DEPARTMENTS = [
-  { code: 'CIV', name: 'Civil', is_operating: true, director_name: 'Thilina', color: '#2563EB', sort_order: 1 },
-  { code: 'MEC', name: 'Mechanical', is_operating: true, director_name: 'Ishara Deshapriya', color: '#D97706', sort_order: 2 },
-  { code: 'CORP', name: 'Corporate / Shared', is_operating: false, director_name: null, color: '#64748B', sort_order: 3 },
+  { code: 'CIV', name: 'Civil', is_operating: true, director_name: 'Thilina', color: '#2a78d6', sort_order: 1 },
+  { code: 'MEC', name: 'Mechanical', is_operating: true, director_name: 'Ishara Deshapriya', color: '#eb6834', sort_order: 2 },
+  { code: 'CORP', name: 'Corporate / Shared', is_operating: false, director_name: null, color: '#1baf7a', sort_order: 3 },
 ] as const;
 
 export interface DefaultAccount {
