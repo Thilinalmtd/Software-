@@ -77,9 +77,28 @@ export class SupabaseRepository implements Repository {
     await this.client.auth.signOut();
   }
 
+  // Email links would open a web page (the project's Site URL), which a desktop app cannot receive,
+  // so confirmation and password reset use the code ({{ .Token }}) from the email instead.
+  async confirmEmail(email: string, code: string): Promise<void> {
+    const { error } = await this.client.auth.verifyOtp({ email, token: code, type: 'email' });
+    if (error) fail(error);
+  }
+
+  async resendConfirmation(email: string): Promise<void> {
+    const { error } = await this.client.auth.resend({ type: 'signup', email });
+    if (error) fail(error);
+  }
+
   async resetPassword(email: string): Promise<void> {
     const { error } = await this.client.auth.resetPasswordForEmail(email);
     if (error) fail(error);
+  }
+
+  async completePasswordReset(email: string, code: string, newPassword: string): Promise<void> {
+    const { error } = await this.client.auth.verifyOtp({ email, token: code, type: 'recovery' });
+    if (error) fail(error);
+    const { error: updateError } = await this.client.auth.updateUser({ password: newPassword });
+    if (updateError) fail(updateError);
   }
 
   async currentMember(): Promise<Member | null> {

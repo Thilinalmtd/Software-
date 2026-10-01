@@ -211,3 +211,74 @@ test('connect screen fixes a pasted API URL and tests the key before saving', as
   const saved = await page.evaluate(() => localStorage.getItem('aptocad-finance-connection'));
   expect(JSON.parse(saved ?? '{}').url).toBe(`https://${ref}.supabase.co`);
 });
+
+// A stand-in for Supabase Auth, enough to drive the sign-up, confirm and reset screens.
+async function fakeSupabase(page: Page) {
+  const ref = 'abcdefghijklmnopqrst';
+  const calls: { method: string; path: string; body: Record<string, unknown> }[] = [];
+  const user = { id: '00000000-0000-4000-8000-000000000001', aud: 'authenticated', role: 'authenticated', email: 'ishara@aptocad.lk', app_metadata: { provider: 'email' }, user_metadata: {}, created_at: '2026-10-01T00:00:00Z' };
+  const b64 = (o: unknown) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const exp = Math.floor(Date.now() / 1000) + 3600;
+  const session = { access_token: `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: user.id, role: 'authenticated', exp })}.sig`, token_type: 'bearer', expires_in: 3600, expires_at: exp, refresh_token: 'refresh', user };
+  await page.addInitScript((url) => {
+    localStorage.setItem('aptocad-finance-connection', JSON.stringify({ url, anonKey: 'sb_publishable_0123456789abcdefghij' }));
+    localStorage.setItem('aptocad-finance-mode', 'supabase');
+  }, `https://${ref}.supabase.co`);
+  await page.route(`https://${ref}.supabase.co/**`, async (route) => {
+    const req = route.request();
+    const path = new URL(req.url()).pathname;
+    const body = (req.postDataJSON() ?? {}) as Record<string, unknown>;
+    calls.push({ method: req.method(), path, body });
+    const json = (status: number, data: unknown) => route.fulfill({ status, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(data) });
+    if (path === '/auth/v1/signup') return json(200, { ...user, confirmation_sent_at: '2026-10-01T00:00:00Z' });
+    if (path === '/auth/v1/token') return json(400, { code: 400, error_code: 'email_not_confirmed', msg: 'Email not confirmed' });
+    if (path === '/auth/v1/verify') return body.token === '123456' ? json(200, session) : json(403, { code: 403, error_code: 'otp_expired', msg: 'Token has expired or is invalid' });
+    if (path === '/auth/v1/recover') return json(200, {});
+    if (path === '/auth/v1/user') return json(200, user);
+    if (path === '/rest/v1/members') return json(200, []);
+    return json(404, { message: 'not mocked' });
+  });
+  return calls;
+}
+
+test('new account is confirmed with the code from the email', async ({ page }) => {
+  const calls = await fakeSupabase(page);
+  await page.goto('/');
+  await page.getByRole('radio', { name: 'Create account' }).click();
+  await page.getByLabel('Full name').fill('Ishara Perera');
+  await page.getByLabel('Email').fill('ishara@aptocad.lk');
+  await page.getByLabel('Password').fill('a-long-password');
+  await page.getByRole('button', { name: 'Create account' }).click();
+  await expect(page.getByRole('heading', { name: 'Confirm your email' })).toBeVisible();
+
+  await page.getByLabel('Code from the email').fill('111111');
+  await page.getByRole('button', { name: 'Confirm email' }).click();
+  await expect(page.getByText(/code is wrong or has expired/)).toBeVisible();
+
+  await page.getByLabel('Code from the email').fill('123456');
+  await page.getByRole('button', { name: 'Confirm email' }).click();
+  await expect(page.getByRole('heading', { name: 'Waiting for approval' })).toBeVisible();
+  expect(calls.filter((c) => c.path === '/auth/v1/verify').at(-1)?.body).toMatchObject({ email: 'ishara@aptocad.lk', token: '123456', type: 'email' });
+});
+
+test('unconfirmed sign-in asks for the code, and a forgotten password is reset by code', async ({ page }) => {
+  const calls = await fakeSupabase(page);
+  await page.goto('/');
+  await page.getByLabel('Email').fill('ishara@aptocad.lk');
+  await page.getByLabel('Password').fill('a-long-password');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page.getByRole('heading', { name: 'Confirm your email' })).toBeVisible();
+  await expect(page.getByText(/not confirmed yet/)).toBeVisible();
+
+  await page.getByRole('button', { name: 'Back to sign in' }).click();
+  await page.getByRole('radio', { name: 'Forgot password' }).click();
+  await page.getByLabel('Email').fill('ishara@aptocad.lk');
+  await page.getByRole('button', { name: 'Email me a code' }).click();
+  await expect(page.getByRole('heading', { name: 'Set a new password' })).toBeVisible();
+  await page.getByLabel('Code from the email').fill('123456');
+  await page.getByLabel('New password').fill('another-long-password');
+  await page.getByRole('button', { name: 'Set new password' }).click();
+  await expect(page.getByRole('heading', { name: 'Waiting for approval' })).toBeVisible();
+  expect(calls.find((c) => c.path === '/auth/v1/verify')?.body).toMatchObject({ token: '123456', type: 'recovery' });
+  await expect.poll(() => calls.find((c) => c.method === 'PUT' && c.path === '/auth/v1/user')?.body.password).toBe('another-long-password');
+});

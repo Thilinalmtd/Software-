@@ -6,6 +6,7 @@ import { Field, Input, SegmentedControl } from '@/components/ui/form';
 import { Callout } from '@/components/ui/misc';
 import { apiKeyProblem, getConnection, normaliseSupabaseUrl, verifyConnection } from '@/data/config';
 import { useAppData } from '@/data/context';
+import { RepositoryError } from '@/data/repository';
 import { errorMessage } from '@/lib/cn';
 
 function AuthLayout({ children, title, subtitle }: { children: ReactNode; title: string; subtitle?: ReactNode }) {
@@ -111,42 +112,140 @@ export function SetupScreen() {
   );
 }
 
+/** Plain-language versions of the Supabase Auth errors people actually meet. */
+function authProblem(err: unknown): string {
+  const code = err instanceof RepositoryError ? err.code : undefined;
+  switch (code) {
+    case 'invalid_credentials':
+      return 'Wrong email or password.';
+    case 'otp_expired':
+      return 'That code is wrong or has expired. Use the code from the latest email, or send a new one.';
+    case 'over_email_send_rate_limit':
+      return 'Supabase’s built-in email sends only a few emails an hour. Try again later, or ask the admin to set up email sending (docs/SETUP.md).';
+    case 'email_address_not_authorized':
+      return 'Supabase’s built-in email only sends to members of the company’s Supabase team. Ask the admin to turn off “Confirm email” or set up email sending (docs/SETUP.md).';
+    case 'user_already_exists':
+    case 'email_exists':
+      return 'There is already an account for this email. Sign in, or use Forgot password.';
+    case 'same_password':
+      return 'Choose a password different from your old one.';
+    case 'signup_disabled':
+      return 'New accounts are turned off for this database. Ask the admin.';
+    default:
+      return errorMessage(err);
+  }
+}
+
+type Tab = 'signin' | 'signup' | 'reset';
+
 export function LoginScreen() {
   const { repo, mode, disconnect } = useAppData();
-  const [tab, setTab] = useState<'signin' | 'signup' | 'reset'>('signin');
+  const [tab, setTab] = useState<Tab>('signin');
+  // After sign-up (or a reset request) the email carries a code; the app asks for it here.
+  const [awaitingCode, setAwaitingCode] = useState(false);
   const [email, setEmail] = useState(mode === 'demo' ? 'demo@aptocad.lk' : '');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
+  const switchTab = (t: Tab) => {
+    setTab(t);
+    setAwaitingCode(false);
+    setMessage(null);
+    setCode('');
+  };
+
+  const run = async (action: () => Promise<void>) => {
     if (!repo) return;
     setBusy(true);
-    setMessage(null);
     try {
-      if (tab === 'signin') await repo.signIn(email, password);
-      else if (tab === 'signup') {
-        const r = await repo.signUp(email, password, name);
-        if (r.needsConfirmation) setMessage('Check your email to confirm your address, then sign in. An admin will then approve your access.');
-      } else {
-        await repo.resetPassword(email);
-        setMessage('If that email has an account, a reset link is on its way.');
-      }
+      await action();
     } catch (err) {
-      toast.error(errorMessage(err));
+      if (err instanceof RepositoryError && err.code === 'email_not_confirmed') {
+        setTab('signup');
+        setAwaitingCode(true);
+        setMessage('This email address is not confirmed yet. Enter the code from the confirmation email, or send a new one.');
+      } else toast.error(authProblem(err));
     } finally {
       setBusy(false);
     }
   };
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    setMessage(null);
+    void run(async () => {
+      if (!repo) return;
+      const addr = email.trim();
+      if (awaitingCode && tab === 'signup') await repo.confirmEmail(addr, code.trim());
+      else if (awaitingCode && tab === 'reset') await repo.completePasswordReset(addr, code.trim(), password);
+      else if (tab === 'signin') await repo.signIn(addr, password);
+      else if (tab === 'signup') {
+        const r = await repo.signUp(addr, password, name.trim());
+        if (r.needsConfirmation) {
+          setAwaitingCode(true);
+          setCode('');
+        }
+      } else {
+        await repo.resetPassword(addr);
+        setAwaitingCode(true);
+        setPassword('');
+        setCode('');
+      }
+    });
+  };
+
+  const resend = () =>
+    void run(async () => {
+      if (!repo) return;
+      if (tab === 'reset') await repo.resetPassword(email.trim());
+      else await repo.resendConfirmation(email.trim());
+      setMessage('A new email is on its way. Use the code from the newest one.');
+    });
+
+  if (awaitingCode) {
+    const reset = tab === 'reset';
+    return (
+      <AuthLayout title={reset ? 'Set a new password' : 'Confirm your email'} subtitle={<>We emailed a code to <span className="font-medium text-ink">{email.trim()}</span>.</>}>
+        <form className="space-y-3" onSubmit={submit}>
+          <Field label="Code from the email" htmlFor="code">
+            <Input id="code" inputMode="numeric" autoComplete="one-time-code" maxLength={10} className="tracking-[0.3em] tabular" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} required autoFocus />
+          </Field>
+          {reset && (
+            <Field label="New password" htmlFor="new-password" hint="At least 8 characters.">
+              <Input id="new-password" type="password" autoComplete="new-password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} required />
+            </Field>
+          )}
+          <Button type="submit" variant="primary" size="lg" className="w-full" loading={busy} disabled={code.length < 6}>
+            {reset ? 'Set new password' : 'Confirm email'}
+          </Button>
+        </form>
+        {message && <Callout className="mt-4" tone="info">{message}</Callout>}
+        <Callout className="mt-4" tone="neutral" title="Only a link in the email, no code?">
+          {reset
+            ? 'Ask the admin to switch the “Reset password” email to the code version (docs/SETUP.md, step 1). The link cannot open this app.'
+            : 'Click the link once. The page it opens may say “This site can’t be reached” — that is fine, your email is confirmed. Then come back here and sign in.'}
+        </Callout>
+        <div className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-[13px] text-ink-2">
+          <button type="button" onClick={resend} disabled={busy} className="cursor-pointer underline-offset-4 hover:underline disabled:opacity-50">
+            Send a new code
+          </button>
+          <button type="button" onClick={() => switchTab('signin')} className="cursor-pointer underline-offset-4 hover:underline">
+            Back to sign in
+          </button>
+        </div>
+      </AuthLayout>
+    );
+  }
 
   return (
     <AuthLayout title={tab === 'signup' ? 'Create your account' : tab === 'reset' ? 'Reset your password' : 'Sign in'} subtitle={mode === 'demo' ? 'Demo mode — any password works.' : 'Use your work email.'}>
       <SegmentedControl
         className="mb-5"
         value={tab}
-        onChange={setTab}
+        onChange={switchTab}
         options={[
           { value: 'signin', label: 'Sign in' },
           { value: 'signup', label: 'Create account' },
@@ -168,7 +267,7 @@ export function LoginScreen() {
           </Field>
         )}
         <Button type="submit" variant="primary" size="lg" className="w-full" loading={busy}>
-          {tab === 'signin' ? 'Sign in' : tab === 'signup' ? 'Create account' : 'Send reset link'}
+          {tab === 'signin' ? 'Sign in' : tab === 'signup' ? 'Create account' : 'Email me a code'}
         </Button>
       </form>
       {message && <Callout className="mt-4" tone="info">{message}</Callout>}

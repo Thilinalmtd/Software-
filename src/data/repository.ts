@@ -91,7 +91,13 @@ export interface Repository {
   signIn(email: string, password: string): Promise<void>;
   signUp(email: string, password: string, fullName: string): Promise<{ needsConfirmation: boolean }>;
   signOut(): Promise<void>;
+  /** Confirms a new account with the code from the sign-up email, and signs in. */
+  confirmEmail(email: string, code: string): Promise<void>;
+  resendConfirmation(email: string): Promise<void>;
+  /** Emails a password-reset code. */
   resetPassword(email: string): Promise<void>;
+  /** Signs in with the code from the reset email and sets the new password. */
+  completePasswordReset(email: string, code: string, newPassword: string): Promise<void>;
   currentMember(): Promise<Member | null>;
 
   // Generic table access (RLS applies)

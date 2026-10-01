@@ -19,8 +19,27 @@ Windows installer, and the email addresses of the people who will use the app.
    audit trail, the default departments (Civil, Mechanical, Corporate / Shared) and the chart of
    accounts from your Excel "Lists" sheet.
    - Developers can instead use the Supabase CLI: `supabase link --project-ref <ref>` then `supabase db push`.
-4. **Authentication → Sign In / Providers → Email**: keep *Email* enabled. Password minimum length: 8.
-   *Confirm email* can stay on (people click a link once) or off (faster set-up).
+4. **Authentication settings.** The app is a desktop program, so it cannot receive the *links* in Supabase's
+   standard emails — they open a web page (by default `http://localhost:3000`, which shows *"This site can't be
+   reached"*). The app asks for the **code** from the email instead:
+   - **Authentication → Sign In / Providers:** keep *Email* enabled, set the minimum password length to 8, and
+     turn **Confirm email off** (recommended). Nobody can see anything until an admin gives them a role in the
+     app, so confirming the address adds little — and Supabase's built-in email only delivers to people in your
+     Supabase team, a few emails an hour, so a director's confirmation email may never arrive.
+   - **Authentication → Emails → Templates** (older dashboards: *Email Templates*): open **Reset password** and
+     replace the message body with the version below, so password resets work from the app. If you keep
+     *Confirm email* on, do the same for **Confirm sign up** (change the heading to *Confirm your email*).
+
+     ```html
+     <h2>Reset your AptoCAD Finance password</h2>
+     <p>Enter this code in the AptoCAD Finance app:</p>
+     <p style="font-size:24px;font-weight:bold;letter-spacing:4px">{{ .Token }}</p>
+     <p>The code expires in one hour. If you did not ask for it, you can ignore this email.</p>
+     ```
+   - **Authentication → Emails → SMTP Settings** (recommended before go-live): connect the company mailbox or a
+     sending service (for example Resend, Brevo or Zoho Mail). Without it, password-reset emails reach only
+     members of your Supabase team, and only a few per hour.
+   - *URL Configuration → Site URL* is not used by the app; you can leave it as it is.
 5. Copy the two values the app needs:
    - **Project URL** — click **Connect** at the top of the project page, or open **Project Settings → Data API**.
      It looks like `https://abcdefghijklmnop.supabase.co` (the letters are your project ID, also visible in the
@@ -56,7 +75,8 @@ is never paused for inactivity and **daily backups** are kept (Database → Back
 ## 3. Create the users
 
 1. **You first.** On the sign-in screen choose **Create account** and use your work email.
-   **The first account created becomes the Admin.**
+   **The first account created becomes the Admin.** If *Confirm email* is on, the app asks for the code from the
+   confirmation email (or, with Supabase's standard email, click the link once, ignore the page it opens, and sign in).
 2. Ask the **Mechanical director** (and anyone else) to install the app, connect, and **Create account**.
    They will see *"Waiting for approval"*.
 3. In **Settings → Users**, give each person a role:
@@ -131,6 +151,9 @@ Azure Trusted Signing, then add the signing step to `.github/workflows/release.y
 | Problem | Fix |
 |---|---|
 | "Invalid path specified in request URL" when signing in or creating an account | The saved Project URL had a path after `.supabase.co` (usually `/rest/v1/`), so sign-in went to the database API instead of the sign-in service. Update the app (it now trims the path, including on a saved connection), or click *Use a different database* and paste only `https://<project-id>.supabase.co` |
+| *"This site can't be reached — localhost refused to connect"* after clicking a link in a Supabase email | The link did its job — the email address **is** confirmed; only the web page it opens afterwards doesn't exist. Go back to the app and sign in. To avoid it, turn off *Confirm email* or use the code templates (section 1, step 4) |
+| *"Supabase's built-in email only sends to members of the company's Supabase team"* or *"a few emails an hour"* | Turn off *Confirm email*, or set up SMTP (section 1, step 4) |
+| A password-reset email has a link but no code | Update the **Reset password** email template (section 1, step 4) and use *Send a new code* |
 | "Supabase did not accept the key" | Copy the **publishable** key again (Project Settings → API Keys) from the same project as the URL |
 | "Could not reach …" / "not responding" | Check the PC is online; on the free plan a project pauses after a week without use — restore it from the Supabase dashboard |
 | "Waiting for approval" after sign-up | An admin must assign a role in Settings → Users |

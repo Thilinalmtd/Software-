@@ -134,7 +134,17 @@ export class DemoRepository implements Repository {
     this.authListeners.forEach((cb) => cb(null));
   }
 
+  async confirmEmail(email: string): Promise<void> {
+    await this.signIn(email);
+  }
+
+  async resendConfirmation(): Promise<void> {}
+
   async resetPassword(): Promise<void> {}
+
+  async completePasswordReset(email: string): Promise<void> {
+    await this.signIn(email);
+  }
 
   async currentMember(): Promise<Member | null> {
     if (!this.session) return null;
