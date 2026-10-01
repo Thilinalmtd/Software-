@@ -185,3 +185,29 @@ test("builds the accountant's pack", async ({ page }) => {
   await page.getByRole('button', { name: /Download accountant pack/ }).click();
   expect((await pack).suggestedFilename()).toMatch(/^AptoCAD-accountant-pack-.*\.xlsx$/);
 });
+
+test('connect screen fixes a pasted API URL and tests the key before saving', async ({ page }) => {
+  const ref = 'abcdefghijklmnopqrst';
+  let keyOk = false;
+  await page.route(`https://${ref}.supabase.co/auth/v1/settings`, (route) =>
+    keyOk
+      ? route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ external: { email: true }, disable_signup: false }) })
+      : route.fulfill({ status: 401, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ message: 'Invalid API key' }) }),
+  );
+  await page.goto('/');
+  await page.getByLabel('Supabase project URL').fill(`https://${ref}.supabase.co/rest/v1/`);
+  await expect(page.getByText(`Will connect to https://${ref}.supabase.co`)).toBeVisible();
+  await page.getByLabel('Publishable key').fill('sb_secret_0123456789abcdefghij');
+  await expect(page.getByText(/This is a secret key/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Connect' })).toBeDisabled();
+
+  await page.getByLabel('Publishable key').fill('sb_publishable_0123456789abcdefghij');
+  await page.getByRole('button', { name: 'Connect' }).click();
+  await expect(page.getByText('Supabase did not accept the key')).toBeVisible();
+
+  keyOk = true;
+  await page.getByRole('button', { name: 'Connect' }).click();
+  await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
+  const saved = await page.evaluate(() => localStorage.getItem('aptocad-finance-connection'));
+  expect(JSON.parse(saved ?? '{}').url).toBe(`https://${ref}.supabase.co`);
+});

@@ -24,7 +24,8 @@ Windows installer, and the email addresses of the people who will use the app.
 5. Copy the two values the app needs:
    - **Project URL** — click **Connect** at the top of the project page, or open **Project Settings → Data API**.
      It looks like `https://abcdefghijklmnop.supabase.co` (the letters are your project ID, also visible in the
-     browser address bar: `supabase.com/dashboard/project/abcdefghijklmnop`).
+     browser address bar: `supabase.com/dashboard/project/abcdefghijklmnop`). Use only this address — nothing
+     after `.supabase.co`. (The app trims extras such as `/rest/v1/`, and also accepts the dashboard address.)
    - **Publishable key** — **Project Settings → API Keys → Publishable key** (starts with `sb_publishable_`).
      If there is none yet, click *Create new API keys*. The legacy **anon** key also works, but Supabase is
      retiring legacy keys by the end of 2026, so prefer the publishable key.
@@ -47,7 +48,8 @@ is never paused for inactivity and **daily backups** are kept (Database → Back
    - If Windows SmartScreen says *"Windows protected your PC"*, click **More info → Run anyway**. This
      appears until the installer is code-signed (see section 6).
    - Windows 10/11 already include the WebView2 runtime the app uses; the installer adds it if missing.
-3. Open **AptoCAD Finance** → **Connect the company database** → paste the Project URL and anon key → **Connect**.
+3. Open **AptoCAD Finance** → **Connect the company database** → paste the Project URL and publishable key →
+   **Connect**. The app checks both with Supabase before saving them and explains anything that is wrong.
 
 ---
 
@@ -102,8 +104,9 @@ Check **Settings → Payroll &amp; tax** with your accountant (EPF/ETF rates, AP
 These are for whoever manages the GitHub repository.
 
 **Pre-configured installers** (no need to paste the URL/key on each PC): in GitHub → *Settings → Secrets and
-variables → Actions → Variables* add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`. Release builds then
-connect automatically. (The anon key is designed to be public; the database security rules protect the data.)
+variables → Actions → Variables* add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (put the publishable key in
+the latter). Release builds then connect automatically. (The publishable key is designed to be public; the database
+security rules protect the data.)
 
 **Automatic updates:**
 
@@ -127,6 +130,9 @@ Azure Trusted Signing, then add the signing step to `.github/workflows/release.y
 
 | Problem | Fix |
 |---|---|
+| "Invalid path specified in request URL" when signing in or creating an account | The saved Project URL had a path after `.supabase.co` (usually `/rest/v1/`), so sign-in went to the database API instead of the sign-in service. Update the app (it now trims the path, including on a saved connection), or click *Use a different database* and paste only `https://<project-id>.supabase.co` |
+| "Supabase did not accept the key" | Copy the **publishable** key again (Project Settings → API Keys) from the same project as the URL |
+| "Could not reach …" / "not responding" | Check the PC is online; on the free plan a project pauses after a week without use — restore it from the Supabase dashboard |
 | "Waiting for approval" after sign-up | An admin must assign a role in Settings → Users |
 | "You can only record entries for your own department" | Directors record for their department or Corporate / Shared; ask the admin for a Bookkeeper role if needed |
 | "The books are locked up to …" | An admin can unlock in Settings → Month lock |

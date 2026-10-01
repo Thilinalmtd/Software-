@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Field, Input, SegmentedControl } from '@/components/ui/form';
 import { Callout } from '@/components/ui/misc';
-import { getConnection, isValidSupabaseUrl } from '@/data/config';
+import { apiKeyProblem, getConnection, normaliseSupabaseUrl, verifyConnection } from '@/data/config';
 import { useAppData } from '@/data/context';
 import { errorMessage } from '@/lib/cn';
 
@@ -50,7 +50,28 @@ export function SetupScreen() {
   const existing = getConnection();
   const [url, setUrl] = useState(existing?.url ?? '');
   const [key, setKey] = useState(existing?.anonKey ?? '');
-  const valid = isValidSupabaseUrl(url) && key.trim().length > 20;
+  const [checking, setChecking] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+  const base = normaliseSupabaseUrl(url);
+  const urlError = url.trim() && !base ? 'Paste the Project URL, like https://abcdefgh.supabase.co (not the database connection string).' : null;
+  const keyError = apiKeyProblem(key, base);
+  const valid = !!base && key.trim().length > 20 && !keyError;
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!base || !valid) return;
+    const c = { url: base, anonKey: key.trim() };
+    setChecking(true);
+    setFailure(null);
+    try {
+      await verifyConnection(c);
+      connect(c);
+    } catch (err) {
+      setFailure(errorMessage(err));
+      setChecking(false);
+    }
+  };
+
   return (
     <AuthLayout title="Welcome" subtitle="Connect to your company database, or look around with sample data first.">
       <div className="space-y-4">
@@ -61,27 +82,27 @@ export function SetupScreen() {
             <span className="mt-0.5 block text-[13px] text-ink-2">Six months of sample AptoCAD data, stored only on this PC. Nothing is shared.</span>
           </span>
         </button>
-        <form
-          className="rounded-xl border border-line bg-surface p-5 shadow-sm"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (valid) connect({ url, anonKey: key });
-          }}
-        >
+        <form className="rounded-xl border border-line bg-surface p-5 shadow-sm" onSubmit={submit}>
           <div className="mb-4 flex items-center gap-3">
             <Database className="size-5 text-info" />
             <p className="font-semibold text-ink">Connect the company database</p>
           </div>
           <div className="space-y-3">
-            <Field label="Supabase project URL" htmlFor="sb-url" hint="Supabase → Connect (top of the project page), or Project Settings → Data API → Project URL">
-              <Input id="sb-url" placeholder="https://abcdefgh.supabase.co" value={url} onChange={(e) => setUrl(e.target.value)} />
+            <Field
+              label="Supabase project URL"
+              htmlFor="sb-url"
+              error={urlError}
+              hint={base && base !== url.trim().replace(/\/+$/, '') ? <>Will connect to <span className="font-medium text-ink-2">{base}</span></> : 'Supabase → Connect (top of the project page), or Project Settings → Data API → Project URL'}
+            >
+              <Input id="sb-url" placeholder="https://abcdefgh.supabase.co" value={url} onChange={(e) => { setUrl(e.target.value); setFailure(null); }} />
             </Field>
-            <Field label="Publishable key" htmlFor="sb-key" hint="Project Settings → API Keys → Publishable key (sb_publishable_…). The legacy “anon” key also works. Never paste a secret or service_role key here.">
-              <Input id="sb-key" placeholder="sb_publishable_…" value={key} onChange={(e) => setKey(e.target.value)} />
+            <Field label="Publishable key" htmlFor="sb-key" error={keyError} hint="Project Settings → API Keys → Publishable key (sb_publishable_…). The legacy “anon” key also works. Never paste a secret or service_role key here.">
+              <Input id="sb-key" placeholder="sb_publishable_…" value={key} onChange={(e) => { setKey(e.target.value); setFailure(null); }} />
             </Field>
           </div>
-          <Button type="submit" variant="primary" className="mt-4 w-full" disabled={!valid}>
-            Connect
+          {failure && <Callout className="mt-4" tone="negative" title="Could not connect">{failure}</Callout>}
+          <Button type="submit" variant="primary" className="mt-4 w-full" disabled={!valid} loading={checking}>
+            {checking ? 'Checking…' : 'Connect'}
           </Button>
           <p className="mt-3 text-xs text-muted">Both directors use the same URL and key. See docs/SETUP.md for the 10-minute setup.</p>
         </form>
