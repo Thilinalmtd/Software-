@@ -21,8 +21,14 @@ Windows installer, and the email addresses of the people who will use the app.
    - Developers can instead use the Supabase CLI: `supabase link --project-ref <ref>` then `supabase db push`.
 4. **Authentication → Sign In / Providers → Email**: keep *Email* enabled. Password minimum length: 8.
    *Confirm email* can stay on (people click a link once) or off (faster set-up).
-5. **Project Settings → API** (or *Data API*): copy the **Project URL** and the **anon / publishable key**.
-   You will paste these into the app. **Never** use the `service_role` / secret key in the app.
+5. Copy the two values the app needs:
+   - **Project URL** — click **Connect** at the top of the project page, or open **Project Settings → Data API**.
+     It looks like `https://abcdefghijklmnop.supabase.co` (the letters are your project ID, also visible in the
+     browser address bar: `supabase.com/dashboard/project/abcdefghijklmnop`).
+   - **Publishable key** — **Project Settings → API Keys → Publishable key** (starts with `sb_publishable_`).
+     If there is none yet, click *Create new API keys*. The legacy **anon** key also works, but Supabase is
+     retiring legacy keys by the end of 2026, so prefer the publishable key.
+   - **Never** use a **secret** (`sb_secret_…`) or **service_role** key in the app — those bypass the security rules.
 
 ### Plan and backups
 

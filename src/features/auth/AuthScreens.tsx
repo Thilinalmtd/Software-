@@ -73,11 +73,11 @@ export function SetupScreen() {
             <p className="font-semibold text-ink">Connect the company database</p>
           </div>
           <div className="space-y-3">
-            <Field label="Supabase project URL" htmlFor="sb-url" hint="Supabase → Project settings → API → Project URL">
+            <Field label="Supabase project URL" htmlFor="sb-url" hint="Supabase → Connect (top of the project page), or Project Settings → Data API → Project URL">
               <Input id="sb-url" placeholder="https://abcdefgh.supabase.co" value={url} onChange={(e) => setUrl(e.target.value)} />
             </Field>
-            <Field label="Public (anon) key" htmlFor="sb-key" hint="The anon / publishable key. Never paste the service-role key here.">
-              <Input id="sb-key" placeholder="eyJhbGciOi…" value={key} onChange={(e) => setKey(e.target.value)} />
+            <Field label="Publishable key" htmlFor="sb-key" hint="Project Settings → API Keys → Publishable key (sb_publishable_…). The legacy “anon” key also works. Never paste a secret or service_role key here.">
+              <Input id="sb-key" placeholder="sb_publishable_…" value={key} onChange={(e) => setKey(e.target.value)} />
             </Field>
           </div>
           <Button type="submit" variant="primary" className="mt-4 w-full" disabled={!valid}>
